@@ -25,7 +25,19 @@ const navItems: NavItem[] = [
 
 export const AppLayout = ({ children }: PropsWithChildren) => {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, isInitializing } = useAuth();
+  const resolvedName = user?.name?.trim();
+  const resolvedEmail = user?.email?.trim();
+  const displayName = user
+    ? resolvedName ?? '이름 정보 없음'
+    : isInitializing
+      ? '계정 확인 중...'
+      : '로그인이 필요합니다';
+  const accountLabel = isInitializing
+    ? '계정 정보를 불러오는 중입니다'
+    : user
+      ? resolvedEmail ?? '이메일 정보 없음'
+      : '로그인 후 이용하세요';
 
   const handleLogout = () => {
     logout();
@@ -60,8 +72,8 @@ export const AppLayout = ({ children }: PropsWithChildren) => {
         </nav>
         <div className="nav-footer">
           <div className="user-card">
-            <span className="user-name">{user?.name ?? '사용자'}</span>
-            <p className="text-caption">계정</p>
+            <span className="user-name">{displayName}</span>
+            <p className="text-caption">{accountLabel}</p>
           </div>
           <button type="button" className="secondary-button logout-button" onClick={handleLogout}>
             로그아웃

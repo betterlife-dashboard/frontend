@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import {
   createContext,
   useCallback,
@@ -9,6 +10,7 @@ import {
 } from 'react';
 import { apiClient } from '@/services/apiClient';
 import type { LoginPayload, LoginResponse, RegisterPayload, UserProfile } from '@/types/auth';
+import type { ApiError } from '@/services/apiClient';
 
 interface AuthContextValue {
   user: UserProfile | null;
@@ -23,9 +25,24 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 const storageKey = 'authToken';
+const profileKey = 'authProfile';
+
+const loadStoredProfile = (): UserProfile | null => {
+  const stored = localStorage.getItem(profileKey);
+  if (!stored) {
+    return null;
+  }
+  try {
+    return JSON.parse(stored) as UserProfile;
+  } catch {
+    localStorage.removeItem(profileKey);
+    return null;
+  }
+};
 
 export const AuthProvider = ({ children }: PropsWithChildren) => {
-  const [user, setUser] = useState<UserProfile | null>(null);
+  const navigate = useNavigate();
+  const [user, setUser] = useState<UserProfile | null>(() => loadStoredProfile());
   const [token, setToken] = useState<string | null>(() => localStorage.getItem(storageKey));
   const [isInitializing, setIsInitializing] = useState(true);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
@@ -39,21 +56,36 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
 
       try {
         const { data } = await apiClient.get<UserProfile>('/auth/me');
-        setUser(data);
-      } catch {
+        if (data && typeof data === 'object') {
+          const storedProfile = loadStoredProfile();
+          const nextProfile: UserProfile = {
+            ...(storedProfile ?? {}),
+            ...data,
+          };
+          setUser(nextProfile);
+          localStorage.setItem(profileKey, JSON.stringify(nextProfile));
+        }
+      } catch (error) {
         localStorage.removeItem(storageKey);
+        localStorage.removeItem(profileKey);
         setToken(null);
         setUser(null);
+        const status = (error as ApiError)?.status;
+        if (status === 401) {
+          navigate('/login', { replace: true });
+        }
       } finally {
         setIsInitializing(false);
       }
     };
 
     void bootstrap();
-  }, [token]);
+  }, [token, navigate]);
 
-  const applyAuthResult = useCallback((data: LoginResponse) => {
-    setUser({ name: data.name });
+  const applyAuthResult = useCallback((data: LoginResponse, email?: string) => {
+    const profile: UserProfile = { name: data.name, email };
+    setUser(profile);
+    localStorage.setItem(profileKey, JSON.stringify(profile));
     setToken(data.token);
     localStorage.setItem(storageKey, data.token);
   }, []);
@@ -63,7 +95,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
       setIsAuthenticating(true);
       try {
         const { data } = await apiClient.post<LoginResponse>('/auth/login', payload);
-        applyAuthResult(data);
+        applyAuthResult(data, payload.email);
       } finally {
         setIsAuthenticating(false);
       }
@@ -86,6 +118,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
 
   const logout = useCallback(() => {
     localStorage.removeItem(storageKey);
+    localStorage.removeItem(profileKey);
     setUser(null);
     setToken(null);
   }, []);
@@ -106,6 +139,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuthContext = () => {
   const context = useContext(AuthContext);
   if (!context) {

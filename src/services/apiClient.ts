@@ -1,6 +1,11 @@
-import axios from 'axios';
+import axios, { type AxiosError } from 'axios';
 
 const baseURL = import.meta.env.VITE_API_BASE_URL ?? 'http://api.betterlifeboard.com';
+
+export interface ApiError extends Error {
+  status?: number;
+  originalError?: unknown;
+}
 
 export const apiClient = axios.create({
   baseURL,
@@ -20,12 +25,16 @@ apiClient.interceptors.request.use((config) => {
 
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
+  (error: AxiosError) => {
     const message =
       error.response?.data?.message ??
       error.response?.data?.error ??
       error.message ??
       '요청 처리 중 오류가 발생했습니다.';
-    return Promise.reject(new Error(message));
+    const normalizedError: ApiError = new Error(message);
+    normalizedError.name = 'ApiError';
+    normalizedError.status = error.response?.status;
+    normalizedError.originalError = error;
+    return Promise.reject(normalizedError);
   },
 );
