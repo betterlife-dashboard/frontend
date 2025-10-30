@@ -26,9 +26,14 @@ apiClient.interceptors.request.use((config) => {
 apiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
+    const responseData = error.response?.data;
     const message =
-      error.response?.data?.message ??
-      error.response?.data?.error ??
+      (responseData && typeof responseData === 'object' && 'message' in responseData
+        ? String(responseData.message)
+        : undefined) ??
+      (responseData && typeof responseData === 'object' && 'error' in responseData
+        ? String(responseData.error)
+        : undefined) ??
       error.message ??
       '요청 처리 중 오류가 발생했습니다.';
     const normalizedError: ApiError = new Error(message);
