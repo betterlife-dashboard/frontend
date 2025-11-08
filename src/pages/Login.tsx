@@ -35,7 +35,7 @@ const Login = () => {
     <div className="auth-page">
       <form onSubmit={handleSubmit} className="card auth-card">
         <div className="auth-header">
-          <h1 className="auth-title">다시 만나서 반가워요 👋</h1>
+          <h1 className="auth-title">만나서 반가워요 👋</h1>
           <p className="text-caption">더 나은 하루를 위한 개인 보드에 로그인하세요.</p>
         </div>
         <div className="form-field">

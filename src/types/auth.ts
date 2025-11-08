@@ -10,7 +10,6 @@ export interface RegisterPayload {
 }
 
 export interface LoginResponse {
-  name: string;
   token: string;
 }
 

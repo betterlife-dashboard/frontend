@@ -47,6 +47,28 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
   const [isInitializing, setIsInitializing] = useState(true);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
 
+  const clearAuthState = useCallback(() => {
+    localStorage.removeItem(storageKey);
+    localStorage.removeItem(profileKey);
+    setToken(null);
+    setUser(null);
+  }, []);
+
+  const fetchProfile = useCallback(async () => {
+    const { data } = await apiClient.get<UserProfile>('/auth/me');
+    if (data && typeof data === 'object') {
+      const storedProfile = loadStoredProfile();
+      const nextProfile: UserProfile = {
+        ...(storedProfile ?? {}),
+        ...data,
+      };
+      setUser(nextProfile);
+      localStorage.setItem(profileKey, JSON.stringify(nextProfile));
+    }
+    const latestToken = localStorage.getItem(storageKey);
+    setToken(latestToken);
+  }, []);
+
   useEffect(() => {
     const bootstrap = async () => {
       if (!token) {
@@ -55,23 +77,10 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
       }
 
       try {
-        const { data } = await apiClient.get<UserProfile>('/auth/me');
-        if (data && typeof data === 'object') {
-          const storedProfile = loadStoredProfile();
-          const nextProfile: UserProfile = {
-            ...(storedProfile ?? {}),
-            ...data,
-          };
-          setUser(nextProfile);
-          localStorage.setItem(profileKey, JSON.stringify(nextProfile));
-        }
+        await fetchProfile();
       } catch (error) {
-        localStorage.removeItem(storageKey);
-        localStorage.removeItem(profileKey);
-        setToken(null);
-        setUser(null);
-        const status = (error as ApiError)?.status;
-        if (status === 401) {
+        clearAuthState();
+        if ((error as ApiError)?.status === 400) {
           navigate('/login', { replace: true });
         }
       } finally {
@@ -80,22 +89,23 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     };
 
     void bootstrap();
-  }, [token, navigate]);
+  }, [token, navigate, fetchProfile, clearAuthState]);
 
-  const applyAuthResult = useCallback((data: LoginResponse, email?: string) => {
-    const profile: UserProfile = { name: data.name, email };
-    setUser(profile);
-    localStorage.setItem(profileKey, JSON.stringify(profile));
-    setToken(data.token);
-    localStorage.setItem(storageKey, data.token);
-  }, []);
+  const applyAuthResult = useCallback(
+    async (data: LoginResponse) => {
+      setToken(data.token);
+      localStorage.setItem(storageKey, data.token);
+      await fetchProfile();
+    },
+    [fetchProfile],
+  );
 
   const login = useCallback(
     async (payload: LoginPayload) => {
       setIsAuthenticating(true);
       try {
         const { data } = await apiClient.post<LoginResponse>('/auth/login', payload);
-        applyAuthResult(data, payload.email);
+        await applyAuthResult(data);
       } finally {
         setIsAuthenticating(false);
       }
@@ -117,11 +127,8 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
   );
 
   const logout = useCallback(() => {
-    localStorage.removeItem(storageKey);
-    localStorage.removeItem(profileKey);
-    setUser(null);
-    setToken(null);
-  }, []);
+    clearAuthState();
+  }, [clearAuthState]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
