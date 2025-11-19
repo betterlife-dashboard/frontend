@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from 'react';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
 import type { TodoRequestPayload, TodoType } from '@/types/todo';
 import { DatePickerButton } from '@/components/common/DatePickerButton';
 import { WEEKDAY_OPTIONS, todayISODate, isWeekdaySelected, toggleWeekday } from '@/utils/todo';
@@ -25,6 +25,7 @@ export const CreateTodoForm = ({ selectedDate, onSubmit, withIntro = true }: Cre
   const [activeUntil, setActiveUntil] = useState<string>(selectedDate);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const titleInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!title) {
@@ -39,10 +40,39 @@ export const CreateTodoForm = ({ selectedDate, onSubmit, withIntro = true }: Cre
     }
   }, [isRecurring]);
 
+  useEffect(() => {
+    titleInputRef.current?.focus();
+  }, []);
+
+  const handleActiveFromChange = (next: string) => {
+    setActiveFrom(next);
+    setActiveUntil((current) => {
+      if (!current || next > current) {
+        return next;
+      }
+      return current;
+    });
+  };
+
+  const handleActiveUntilChange = (next: string) => {
+    setActiveUntil(next);
+    setActiveFrom((current) => {
+      if (!current || next < current) {
+        return next;
+      }
+      return current;
+    });
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!title.trim()) {
       setError('할 일 제목을 입력해주세요.');
+      return;
+    }
+
+    if (isRecurring && repeatDaysMask === 0) {
+      setError('반복 일정 요일을 최소 1개 이상 선택해주세요.');
       return;
     }
 
@@ -92,6 +122,7 @@ export const CreateTodoForm = ({ selectedDate, onSubmit, withIntro = true }: Cre
           placeholder="예) 아침 스트레칭, 데일리 스탠드업 준비"
           value={title}
           onChange={(event) => setTitle(event.target.value)}
+          ref={titleInputRef}
         />
       </div>
       <div className="form-field" style={{ minWidth: '180px' }}>
@@ -141,7 +172,7 @@ export const CreateTodoForm = ({ selectedDate, onSubmit, withIntro = true }: Cre
             <DatePickerButton
               id="todo-active-from"
               value={activeFrom}
-              onChange={(next) => setActiveFrom(next)}
+              onChange={handleActiveFromChange}
               label="시작일 선택"
             />
           </div>
@@ -150,7 +181,7 @@ export const CreateTodoForm = ({ selectedDate, onSubmit, withIntro = true }: Cre
             <DatePickerButton
               id="todo-active-until"
               value={activeUntil}
-              onChange={(next) => setActiveUntil(next)}
+              onChange={handleActiveUntilChange}
               label="마감일 선택"
             />
           </div>

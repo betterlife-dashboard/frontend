@@ -11,14 +11,16 @@ interface TodoDetailModalProps {
   onClose: () => void;
 }
 
-const statusOptions: TodoStatus[] = ['PLANNED', 'DONE', 'FAILED', 'CANCELED'];
+const statusOptions: TodoStatus[] = ['PLANNED', 'DONE', 'CANCELLED', 'EXPIRED'];
 
 const statusLabelMap: Record<TodoStatus, string> = {
   PLANNED: '예정',
   DONE: '완료',
-  FAILED: '실패',
-  CANCELED: '취소',
+  CANCELLED: '취소',
+  EXPIRED: '종료',
 };
+
+const extractDateValue = (value?: string | null) => (value ? value.slice(0, 10) : todayISODate());
 
 export const TodoDetailModal = ({ todo, isOpen, onUpdate, onDelete, onClose }: TodoDetailModalProps) => {
   const [title, setTitle] = useState('');
@@ -37,8 +39,8 @@ export const TodoDetailModal = ({ todo, isOpen, onUpdate, onDelete, onClose }: T
     setTitle(todo.title);
     setType(todo.type);
     setStatus(todo.status);
-    setActiveFrom(todo.activeFrom ?? todayISODate());
-    setActiveUntil(todo.activeUntil ?? todayISODate());
+    setActiveFrom(extractDateValue(todo.activeFrom));
+    setActiveUntil(extractDateValue(todo.activeUntil));
     setError(null);
     setIsSaving(false);
     setIsDeleting(false);
@@ -98,12 +100,14 @@ export const TodoDetailModal = ({ todo, isOpen, onUpdate, onDelete, onClose }: T
 
     setIsSaving(true);
     setError(null);
+    const normalizedActiveFrom = activeFrom || todayISODate();
+    const normalizedActiveUntil = activeUntil || todayISODate();
     const payload: TodoUpdatePayload = {
       title: title.trim(),
       type,
       status,
-      activeFrom,
-      activeUntil,
+      activeFrom: normalizedActiveFrom,
+      activeUntil: normalizedActiveUntil,
     };
 
     try {

@@ -1,6 +1,6 @@
 export type TodoType = 'GENERAL' | 'WORK_STUDY' | 'WORKOUT' | 'SCHEDULE';
 
-export type TodoStatus = 'PLANNED' | 'DONE' | 'FAILED' | 'CANCELED';
+export type TodoStatus = 'PLANNED' | 'DONE' | 'CANCELLED' | 'EXPIRED';
 
 export interface TodoItem {
   id: number;

@@ -2,26 +2,37 @@ import { useState } from 'react';
 import type { TodoItem, TodoStatus, TodoType } from '@/types/todo';
 import { formatRepeatDays, isTodayDate } from '@/utils/todo';
 
+const dateFormatter = new Intl.DateTimeFormat('ko-KR', {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
 const formatDeadline = (value?: string | null) => {
   if (!value) {
     return null;
   }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
+  let date: Date | null = null;
+  const dateOnly = value.slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateOnly)) {
+    const candidate = new Date(`${dateOnly}T00:00:00`);
+    if (!Number.isNaN(candidate.getTime())) {
+      date = candidate;
+    }
+  }
+
+  const normalizedDate = date ?? new Date(value);
+  if (Number.isNaN(normalizedDate.getTime())) {
     return null;
   }
-  return new Intl.DateTimeFormat('ko-KR', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(date);
+  return dateFormatter.format(normalizedDate);
 };
 
 const statusLabels: Record<TodoStatus, string> = {
   PLANNED: '예정',
   DONE: '완료',
-  FAILED: '실패',
-  CANCELED: '취소',
+  CANCELLED: '취소',
+  EXPIRED: '종료',
 };
 
 const typeLabels: Record<TodoType, string> = {
@@ -117,19 +128,17 @@ export const TodoList = ({
       {todos.map((todo) => {
         const repeatLabel = formatRepeatDays(todo.repeatDays);
         const deadlineLabel = formatDeadline(todo.activeUntil ?? todo.activeFrom);
-        const metadataParts: string[] = [];
-        if (todo.status !== 'PLANNED') {
-          metadataParts.push(`상태: ${statusLabels[todo.status]}`);
-        }
-        metadataParts.push(`마감: ${deadlineLabel ?? '미정'}`);
+        const metadataParts: string[] = [`마감: ${deadlineLabel ?? '미정'}`];
         const canShowRepeat = Boolean(repeatLabel) && isTodayDate(todo.activeFrom) && isTodayDate(todo.activeUntil);
         if (canShowRepeat && repeatLabel) {
           metadataParts.push(`반복: ${repeatLabel}`);
         }
+        const statusLabel = statusLabels[todo.status];
+        const statusClassName = `todo-status status-${todo.status.toLowerCase()}`;
         return (
           <div
             key={todo.id}
-            className={`todo-item type-${todo.type.toLowerCase()}`}
+            className={`todo-item type-${todo.type.toLowerCase()} status-${todo.status.toLowerCase()}`}
             role="button"
             tabIndex={0}
             onClick={() => onSelect?.(todo)}
@@ -143,7 +152,10 @@ export const TodoList = ({
             <div className="todo-meta">
               <span className="todo-type">{typeLabels[todo.type]}</span>
               <div>
-                <div className="todo-title">{todo.title}</div>
+                <div className="todo-title-row">
+                  <div className="todo-title">{todo.title}</div>
+                  <span className={statusClassName}>{statusLabel}</span>
+                </div>
                 <p className="text-caption">{metadataParts.join(' · ')}</p>
               </div>
             </div>

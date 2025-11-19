@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiClient } from '@/services/apiClient';
 import type { TodoItem, TodoRequestPayload, TodoUpdatePayload } from '@/types/todo';
+import { normalizeTodoDateRange } from '@/utils/todo';
 
 const toISODate = (date: Date) => date.toISOString().slice(0, 10);
 
@@ -43,14 +44,16 @@ export const useTodos = ({ initialDate }: UseTodosOptions = {}) => {
 
   const createTodo = useCallback(
     async (payload: TodoRequestPayload) => {
-      const { data } = await apiClient.post<TodoItem>('/todo/create', payload);
-      setItems((prev) => [data, ...prev]);
+      const normalizedPayload = normalizeTodoDateRange(payload);
+      await apiClient.post<TodoItem>('/todo/create', normalizedPayload);
+      await fetchTodos(currentDate);
     },
-    [],
+    [currentDate, fetchTodos],
   );
 
   const updateTodo = useCallback(async (id: number, payload: TodoUpdatePayload) => {
-    const { data } = await apiClient.patch<TodoItem>(`/todo/patch/${id}`, payload);
+    const normalizedPayload = normalizeTodoDateRange(payload);
+    const { data } = await apiClient.patch<TodoItem>(`/todo/patch/${id}`, normalizedPayload);
     setItems((prev) => prev.map((todo) => (todo.id === id ? data : todo)));
   }, []);
 

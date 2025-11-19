@@ -65,10 +65,10 @@ const Home = () => {
       }),
     [visibleTodos],
   );
-  const failedAndCanceledTodos = useMemo(
+  const cancelledAndExpiredTodos = useMemo(
     () =>
       [
-        ...visibleTodos.filter((todo) => todo.status === 'FAILED' || todo.status === 'CANCELED'),
+        ...visibleTodos.filter((todo) => todo.status === 'CANCELLED' || todo.status === 'EXPIRED'),
       ].sort((a, b) => {
         const aTime = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
         const bTime = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
@@ -111,7 +111,7 @@ const Home = () => {
     const payload = makeUpdatePayload(todo, status, currentDate);
     await updateTodo(todo.id, payload);
     const statusLabel =
-      status === 'DONE' ? '완료' : status === 'FAILED' ? '실패' : status === 'CANCELED' ? '취소' : '예정';
+      status === 'DONE' ? '완료' : status === 'CANCELLED' ? '취소' : status === 'EXPIRED' ? '종료' : '예정';
     showFeedback(`"${todo.title}" 상태를 ${statusLabel}로 변경했습니다.`);
   };
 
@@ -173,15 +173,15 @@ const Home = () => {
           emptyMessage="완료된 할 일이 없습니다."
         />
         <TodoList
-          title="실패하거나 취소된 할 일"
-          todos={failedAndCanceledTodos}
+          title="취소되거나 종료된 할 일"
+          todos={cancelledAndExpiredTodos}
           isLoading={isLoading}
           error={null}
           onRetry={() => void fetchTodos(currentDate)}
           onStatusChange={handleStatusChange}
           onDelete={handleDelete}
           onSelect={setSelectedTodo}
-          emptyMessage="실패하거나 취소된 할 일이 없습니다."
+          emptyMessage="취소되거나 종료된 할 일이 없습니다."
         />
       </div>
       <CreateTodoModal
