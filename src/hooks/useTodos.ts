@@ -21,7 +21,7 @@ export const useTodos = ({ initialDate }: UseTodosOptions = {}) => {
       setIsLoading(true);
       setError(null);
       try {
-        const { data } = await apiClient.get<TodoItem[]>(`/api/todos/${date}`);
+        const { data } = await apiClient.get<TodoItem[]>(`/todo/${date}`);
         setItems(data);
       } catch (err) {
         const message = err instanceof Error ? err.message : '할 일을 불러오지 못했습니다.';
@@ -43,19 +43,19 @@ export const useTodos = ({ initialDate }: UseTodosOptions = {}) => {
 
   const createTodo = useCallback(
     async (payload: TodoRequestPayload) => {
-      const { data } = await apiClient.post<TodoItem>('/api/todos/create', payload);
+      const { data } = await apiClient.post<TodoItem>('/todo/create', payload);
       setItems((prev) => [data, ...prev]);
     },
     [],
   );
 
   const updateTodo = useCallback(async (id: number, payload: TodoUpdatePayload) => {
-    const { data } = await apiClient.patch<TodoItem>(`/api/todos/patch/${id}`, payload);
+    const { data } = await apiClient.patch<TodoItem>(`/todo/patch/${id}`, payload);
     setItems((prev) => prev.map((todo) => (todo.id === id ? data : todo)));
   }, []);
 
   const deleteTodo = useCallback(async (id: number) => {
-    await apiClient.delete(`/api/todos/${id}`);
+    await apiClient.delete(`/todo/${id}`);
     setItems((prev) => prev.filter((todo) => todo.id !== id));
   }, []);
 

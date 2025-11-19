@@ -11,7 +11,7 @@ export const useRepeatTodos = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const { data } = await apiClient.get<TodoItem[]>('/api/todos/recur');
+      const { data } = await apiClient.get<TodoItem[]>('/todo/recur');
       setItems(data);
     } catch (err) {
       const message = err instanceof Error ? err.message : '반복 할 일을 불러오지 못했습니다.';
@@ -26,12 +26,12 @@ export const useRepeatTodos = () => {
   }, [fetchTodos]);
 
   const updateTodo = useCallback(async (id: number, payload: RepeatTodoUpdatePayload) => {
-    const { data } = await apiClient.patch<TodoItem>(`/api/todos/patch/repeat/${id}`, payload);
+    const { data } = await apiClient.patch<TodoItem>(`/todo/patch/repeat/${id}`, payload);
     setItems((prev) => prev.map((todo) => (todo.id === id ? data : todo)));
   }, []);
 
   const deleteTodo = useCallback(async (id: number) => {
-    await apiClient.delete(`/api/todos/${id}`);
+    await apiClient.delete(`/todo/${id}`);
     setItems((prev) => prev.filter((todo) => todo.id !== id));
   }, []);
 
