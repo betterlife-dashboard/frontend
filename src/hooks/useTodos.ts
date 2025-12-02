@@ -45,7 +45,8 @@ export const useTodos = ({ initialDate }: UseTodosOptions = {}) => {
   const createTodo = useCallback(
     async (payload: TodoRequestPayload) => {
       const normalizedPayload = normalizeTodoDateRange(payload);
-      await apiClient.post<TodoItem>('/todo/create', normalizedPayload);
+      const endpoint = payload.type === 'SCHEDULE' ? '/todo/create/schedule' : '/todo/create/general';
+      await apiClient.post<TodoItem>(endpoint, normalizedPayload);
       await fetchTodos(currentDate);
     },
     [currentDate, fetchTodos],

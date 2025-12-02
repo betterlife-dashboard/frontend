@@ -3,6 +3,35 @@ import type { TodoItem, TodoStatus, TodoType, TodoUpdatePayload } from '@/types/
 import { DatePickerButton } from '@/components/common/DatePickerButton';
 import { formatRepeatDays, isTodayDate, todayISODate } from '@/utils/todo';
 
+const DEFAULT_START_TIME = '09:00';
+const DEFAULT_END_TIME = '10:00';
+const HOURS = Array.from({ length: 24 }, (_, index) => String(index).padStart(2, '0'));
+const MINUTES = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'];
+
+const toDateOnlyValue = (value?: string | null) => (value ? value.slice(0, 10) : todayISODate());
+const toTimeOnlyValue = (value?: string | null) => {
+  if (!value) return '';
+  const [, time] = value.split('T');
+  if (!time) return '';
+  return time.slice(0, 5);
+};
+
+const ensureDateTimeValue = (value: string | undefined, baseDate: string, fallbackTime: string) => {
+  if (value?.includes('T')) {
+    return value;
+  }
+  const date = toDateOnlyValue(value) || baseDate;
+  return `${date}T${fallbackTime}`;
+};
+
+const ensureDateOnlyValue = (value: string | undefined, baseDate: string) => toDateOnlyValue(value) || baseDate;
+const composeDateTime = (date: string, time: string) => `${date}T${time || DEFAULT_START_TIME}`;
+const getTimeParts = (value: string | undefined, fallback: string) => {
+  const time = toTimeOnlyValue(value) || fallback;
+  const [hour = '00', minute = '00'] = time.split(':');
+  return [hour.padStart(2, '0'), minute.padStart(2, '0')];
+};
+
 interface TodoDetailModalProps {
   todo: TodoItem | null;
   isOpen: boolean;
@@ -20,7 +49,14 @@ const statusLabelMap: Record<TodoStatus, string> = {
   EXPIRED: '종료',
 };
 
-const extractDateValue = (value?: string | null) => (value ? value.slice(0, 10) : todayISODate());
+const auditDateFormatter = new Intl.DateTimeFormat('ko-KR', {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+});
 
 export const TodoDetailModal = ({ todo, isOpen, onUpdate, onDelete, onClose }: TodoDetailModalProps) => {
   const [title, setTitle] = useState('');
@@ -28,9 +64,12 @@ export const TodoDetailModal = ({ todo, isOpen, onUpdate, onDelete, onClose }: T
   const [status, setStatus] = useState<TodoStatus>('PLANNED');
   const [activeFrom, setActiveFrom] = useState<string>(todayISODate());
   const [activeUntil, setActiveUntil] = useState<string>(todayISODate());
+  const [alarmBase, setAlarmBase] = useState<'start' | 'end'>('start');
+  const [alarmOffsets, setAlarmOffsets] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isSchedule = type === 'SCHEDULE';
 
   useEffect(() => {
     if (!todo || !isOpen) {
@@ -39,8 +78,15 @@ export const TodoDetailModal = ({ todo, isOpen, onUpdate, onDelete, onClose }: T
     setTitle(todo.title);
     setType(todo.type);
     setStatus(todo.status);
-    setActiveFrom(extractDateValue(todo.activeFrom));
-    setActiveUntil(extractDateValue(todo.activeUntil));
+    if (todo.type === 'SCHEDULE') {
+      setActiveFrom(ensureDateTimeValue(todo.activeFrom ?? undefined, todayISODate(), DEFAULT_START_TIME));
+      setActiveUntil(ensureDateTimeValue(todo.activeUntil ?? undefined, todayISODate(), DEFAULT_END_TIME));
+    } else {
+      setActiveFrom(ensureDateOnlyValue(todo.activeFrom ?? undefined, todayISODate()));
+      setActiveUntil(ensureDateOnlyValue(todo.activeUntil ?? undefined, todayISODate()));
+    }
+    setAlarmBase('start');
+    setAlarmOffsets([]);
     setError(null);
     setIsSaving(false);
     setIsDeleting(false);
@@ -58,10 +104,10 @@ export const TodoDetailModal = ({ todo, isOpen, onUpdate, onDelete, onClose }: T
     }
     const parts: string[] = [];
     if (todo.createdAt) {
-      parts.push(`생성: ${new Date(todo.createdAt).toLocaleString('ko-KR')}`);
+      parts.push(`생성: ${auditDateFormatter.format(new Date(todo.createdAt))}`);
     }
     if (todo.updatedAt) {
-      parts.push(`수정: ${new Date(todo.updatedAt).toLocaleString('ko-KR')}`);
+      parts.push(`수정: ${auditDateFormatter.format(new Date(todo.updatedAt))}`);
     }
     const repeatLabel =
       todo.repeatDays && isTodayDate(todo.activeFrom) && isTodayDate(todo.activeUntil)
@@ -86,6 +132,16 @@ export const TodoDetailModal = ({ todo, isOpen, onUpdate, onDelete, onClose }: T
     window.addEventListener('keydown', keyHandler);
     return () => window.removeEventListener('keydown', keyHandler);
   }, [isOpen, onClose]);
+
+  useEffect(() => {
+    if (isSchedule) {
+      setActiveFrom((current) => ensureDateTimeValue(current, todayISODate(), DEFAULT_START_TIME));
+      setActiveUntil((current) => ensureDateTimeValue(current, todayISODate(), DEFAULT_END_TIME));
+    } else {
+      setActiveFrom((current) => ensureDateOnlyValue(current, todayISODate()));
+      setActiveUntil((current) => ensureDateOnlyValue(current, todayISODate()));
+    }
+  }, [isSchedule]);
 
   if (!isOpen || !todo) {
     return null;
@@ -136,6 +192,28 @@ export const TodoDetailModal = ({ todo, isOpen, onUpdate, onDelete, onClose }: T
     }
   };
 
+  const handleScheduleStartDateChange = (nextDate: string) => {
+    const date = toDateOnlyValue(nextDate);
+    const time = toTimeOnlyValue(activeFrom) || DEFAULT_START_TIME;
+    setActiveFrom(composeDateTime(date, time));
+  };
+
+  const handleScheduleStartTimeChange = (nextTime: string) => {
+    const date = toDateOnlyValue(activeFrom);
+    setActiveFrom(composeDateTime(date, nextTime || DEFAULT_START_TIME));
+  };
+
+  const handleScheduleEndDateChange = (nextDate: string) => {
+    const date = toDateOnlyValue(nextDate);
+    const time = toTimeOnlyValue(activeUntil) || DEFAULT_END_TIME;
+    setActiveUntil(composeDateTime(date, time));
+  };
+
+  const handleScheduleEndTimeChange = (nextTime: string) => {
+    const date = toDateOnlyValue(activeUntil);
+    setActiveUntil(composeDateTime(date, nextTime || DEFAULT_END_TIME));
+  };
+
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true">
       <div className="modal-card card">
@@ -182,30 +260,184 @@ export const TodoDetailModal = ({ todo, isOpen, onUpdate, onDelete, onClose }: T
               ))}
             </select>
           </div>
-          <div className="form-row">
-            <div className="form-field" style={{ minWidth: '160px' }}>
-              <label htmlFor="todo-detail-active-from">시작일</label>
-              <DatePickerButton
-                id="todo-detail-active-from"
-                value={activeFrom}
-                onChange={(next) => setActiveFrom(next)}
-                label="시작일 선택"
-              />
+          {isSchedule ? (
+            <>
+              <div className="form-row">
+                <div className="form-field" style={{ minWidth: '180px' }}>
+                  <label htmlFor="todo-detail-start-date">시작 날짜</label>
+                  <DatePickerButton
+                    id="todo-detail-start-date"
+                    value={toDateOnlyValue(activeFrom)}
+                    onChange={handleScheduleStartDateChange}
+                    label="시작 날짜 선택"
+                  />
+                </div>
+                <div className="form-field" style={{ minWidth: '160px' }}>
+                  <label htmlFor="todo-detail-start-time">시작 시간</label>
+                  <div className="form-row" style={{ gap: '8px' }}>
+                    <select
+                      id="todo-detail-start-time"
+                      value={getTimeParts(activeFrom, DEFAULT_START_TIME)[0]}
+                      onChange={(event) =>
+                        handleScheduleStartTimeChange(
+                          `${event.target.value}:${getTimeParts(activeFrom, DEFAULT_START_TIME)[1]}`,
+                        )
+                      }
+                      aria-label="시작 시각 시간 선택"
+                    >
+                      {HOURS.map((hour) => (
+                        <option key={hour} value={hour}>
+                          {hour}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={getTimeParts(activeFrom, DEFAULT_START_TIME)[1]}
+                      onChange={(event) =>
+                        handleScheduleStartTimeChange(
+                          `${getTimeParts(activeFrom, DEFAULT_START_TIME)[0]}:${event.target.value}`,
+                        )
+                      }
+                      aria-label="시작 시각 분 선택"
+                    >
+                      {MINUTES.map((minute) => (
+                        <option key={minute} value={minute}>
+                          {minute}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-field" style={{ minWidth: '180px' }}>
+                  <label htmlFor="todo-detail-end-date">종료 날짜</label>
+                  <DatePickerButton
+                    id="todo-detail-end-date"
+                    value={toDateOnlyValue(activeUntil)}
+                    onChange={handleScheduleEndDateChange}
+                    label="종료 날짜 선택"
+                    min={toDateOnlyValue(activeFrom)}
+                  />
+                </div>
+                <div className="form-field" style={{ minWidth: '160px' }}>
+                  <label htmlFor="todo-detail-end-time">종료 시간</label>
+                  <div className="form-row" style={{ gap: '8px' }}>
+                    <select
+                      id="todo-detail-end-time"
+                      value={getTimeParts(activeUntil, DEFAULT_END_TIME)[0]}
+                      onChange={(event) =>
+                        handleScheduleEndTimeChange(
+                          `${event.target.value}:${getTimeParts(activeUntil, DEFAULT_END_TIME)[1]}`,
+                        )
+                      }
+                      aria-label="종료 시각 시간 선택"
+                    >
+                      {HOURS.map((hour) => (
+                        <option key={hour} value={hour}>
+                          {hour}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={getTimeParts(activeUntil, DEFAULT_END_TIME)[1]}
+                      onChange={(event) =>
+                        handleScheduleEndTimeChange(
+                          `${getTimeParts(activeUntil, DEFAULT_END_TIME)[0]}:${event.target.value}`,
+                        )
+                      }
+                      aria-label="종료 시각 분 선택"
+                    >
+                      {MINUTES.map((minute) => (
+                        <option key={minute} value={minute}>
+                          {minute}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="form-row">
+              <div className="form-field" style={{ minWidth: '160px' }}>
+                <label htmlFor="todo-detail-active-from">시작일</label>
+                <DatePickerButton
+                  id="todo-detail-active-from"
+                  value={activeFrom}
+                  onChange={(next) => setActiveFrom(next)}
+                  label="시작일 선택"
+                />
+              </div>
+              <div className="form-field" style={{ minWidth: '160px' }}>
+                <label htmlFor="todo-detail-active-until">마감일</label>
+                <DatePickerButton
+                  id="todo-detail-active-until"
+                  value={activeUntil}
+                  onChange={(next) => setActiveUntil(next)}
+                  label="마감일 선택"
+                />
+              </div>
             </div>
-            <div className="form-field" style={{ minWidth: '160px' }}>
-              <label htmlFor="todo-detail-active-until">마감일</label>
-              <DatePickerButton
-                id="todo-detail-active-until"
-                value={activeUntil}
-                onChange={(next) => setActiveUntil(next)}
-                label="마감일 선택"
-              />
-            </div>
-          </div>
+          )}
           {repeatLabel && !isSameDayRange ? (
             <p className="text-caption">
               반복 일정은 시작/마감이 오늘인 반복 Todo 페이지에서만 수정할 수 있습니다.
             </p>
+          ) : null}
+          {isSchedule ? (
+            <div className="form-field">
+              <label>알림 설정</label>
+              <div className="form-row" style={{ gap: '12px' }}>
+                <label className="checkbox-field">
+                  <input
+                    type="radio"
+                    name="detail-alarm-base"
+                    value="start"
+                    checked={alarmBase === 'start'}
+                    onChange={() => setAlarmBase('start')}
+                  />
+                  시작 시간 기준
+                </label>
+                <label className="checkbox-field">
+                  <input
+                    type="radio"
+                    name="detail-alarm-base"
+                    value="end"
+                    checked={alarmBase === 'end'}
+                    onChange={() => setAlarmBase('end')}
+                  />
+                  종료 시간 기준
+                </label>
+              </div>
+              <div className="form-row" style={{ flexWrap: 'wrap', gap: '12px' }}>
+                {['1h', '1d', '3d', '1w'].map((value) => {
+                  const labelMap: Record<string, string> = {
+                    '1h': '1시간 전',
+                    '1d': '하루 전',
+                    '3d': '3일 전',
+                    '1w': '일주일 전',
+                  };
+                  const isChecked = alarmOffsets.includes(value);
+                  return (
+                    <label key={value} className="checkbox-field">
+                      <input
+                        type="checkbox"
+                        value={value}
+                        checked={isChecked}
+                        onChange={() =>
+                          setAlarmOffsets((prev) =>
+                            prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value],
+                          )
+                        }
+                      />
+                      {labelMap[value]}
+                    </label>
+                  );
+                })}
+              </div>
+              <p className="text-caption">알림은 UI만 제공되며, 서버 연동은 추후 적용 예정입니다.</p>
+            </div>
           ) : null}
           {error ? <div className="error-banner">{error}</div> : null}
           <div className="modal-actions">

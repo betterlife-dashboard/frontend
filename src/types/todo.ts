@@ -14,14 +14,23 @@ export interface TodoItem {
   updatedAt?: string;
 }
 
-export interface TodoRequestPayload {
+export interface BaseTodoRequestPayload {
   title: string;
   type: TodoType;
   status: TodoStatus;
-  repeatDays?: number | null;
   activeFrom?: string | null;
   activeUntil?: string | null;
 }
+
+export interface GeneralTodoRequestPayload extends BaseTodoRequestPayload {
+  repeatDays?: number | null;
+}
+
+export interface ScheduleTodoRequestPayload extends BaseTodoRequestPayload {
+  alarms: string[];
+}
+
+export type TodoRequestPayload = GeneralTodoRequestPayload | ScheduleTodoRequestPayload;
 
 export interface TodoUpdatePayload {
   title: string;
