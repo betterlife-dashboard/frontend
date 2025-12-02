@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiClient } from '@/services/apiClient';
-import type { TodoItem, TodoRequestPayload, TodoUpdatePayload } from '@/types/todo';
+import type {
+  ScheduleTodoUpdatePayload,
+  TodoItem,
+  TodoRequestPayload,
+  TodoUpdatePayload,
+} from '@/types/todo';
 import { normalizeTodoDateRange } from '@/utils/todo';
 
 const toISODate = (date: Date) => date.toISOString().slice(0, 10);
@@ -52,11 +57,41 @@ export const useTodos = ({ initialDate }: UseTodosOptions = {}) => {
     [currentDate, fetchTodos],
   );
 
-  const updateTodo = useCallback(async (id: number, payload: TodoUpdatePayload) => {
-    const normalizedPayload = normalizeTodoDateRange(payload);
-    const { data } = await apiClient.patch<TodoItem>(`/todo/patch/${id}`, normalizedPayload);
-    setItems((prev) => prev.map((todo) => (todo.id === id ? data : todo)));
-  }, []);
+  const fetchScheduleAlarms = useCallback(
+    async (id: number) => {
+      try {
+        const { data } = await apiClient.get<{ alarms: string[] }>(`/notify/${id}`);
+        return data.alarms ?? [];
+      } catch {
+        return [];
+      }
+    },
+    [],
+  );
+
+  const updateTodo = useCallback(
+    async (id: number, payload: TodoUpdatePayload) => {
+      if (payload.type === 'SCHEDULE') {
+        const normalizedPayload = normalizeTodoDateRange(payload) as ScheduleTodoUpdatePayload;
+        const alarms =
+          'alarms' in normalizedPayload && normalizedPayload.alarms !== undefined
+            ? normalizedPayload.alarms
+            : await fetchScheduleAlarms(id);
+        const schedulePayload: ScheduleTodoUpdatePayload = {
+          ...normalizedPayload,
+          alarms,
+        };
+        const { data } = await apiClient.patch<TodoItem>(`/todo/patch/schedule/${id}`, schedulePayload);
+        setItems((prev) => prev.map((todo) => (todo.id === id ? data : todo)));
+        return;
+      }
+
+      const normalizedPayload = normalizeTodoDateRange(payload);
+      const { data } = await apiClient.patch<TodoItem>(`/todo/patch/${id}`, normalizedPayload);
+      setItems((prev) => prev.map((todo) => (todo.id === id ? data : todo)));
+    },
+    [fetchScheduleAlarms],
+  );
 
   const deleteTodo = useCallback(async (id: number) => {
     await apiClient.delete(`/todo/${id}`);

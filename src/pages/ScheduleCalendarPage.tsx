@@ -63,7 +63,7 @@ const ScheduleCalendarPage = () => {
               value={currentMonthStart.slice(0, 7)}
               onChange={(e) => handleMonthChange(`${e.target.value}-01`)}
               className="date-input"
-              style={{ width: '150px' }}
+              style={{ width: '220px' }}
             />
           </label>
           <button type="button" className="secondary-button" onClick={() => void fetchMonth(currentMonthStart)}>

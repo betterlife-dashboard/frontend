@@ -4,6 +4,7 @@ interface ScheduleCalendarProps {
   referenceDate: string;
   todos: TodoItem[];
   onSelectDate?: (date: string) => void;
+  onSelectTodo?: (todo: TodoItem) => void;
 }
 
 const WEEK_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -30,21 +31,13 @@ const getMonthGrid = (referenceDate: string) => {
   return days;
 };
 
-const isWithinRange = (target: string, start?: string | null, end?: string | null) => {
-  if (!start && !end) return false;
-  const targetKey = target;
-  const startKey = start ? start.slice(0, 10) : targetKey;
-  const endKey = end ? end.slice(0, 10) : targetKey;
-  return targetKey >= startKey && targetKey <= endKey;
-};
-
 const getRangeInfo = (todo: TodoItem) => {
   const startKey = todo.activeFrom ? todo.activeFrom.slice(0, 10) : todo.activeUntil?.slice(0, 10) ?? '';
   const endKey = todo.activeUntil ? todo.activeUntil.slice(0, 10) : startKey;
   return { startKey, endKey };
 };
 
-export const ScheduleCalendar = ({ referenceDate, todos, onSelectDate }: ScheduleCalendarProps) => {
+export const ScheduleCalendar = ({ referenceDate, todos, onSelectTodo }: ScheduleCalendarProps) => {
   const days = getMonthGrid(referenceDate);
   const schedules = todos.filter((todo) => todo.type === 'SCHEDULE');
   const weeks = Array.from({ length: 6 }, (_, idx) => days.slice(idx * 7, idx * 7 + 7));
@@ -96,9 +89,17 @@ export const ScheduleCalendar = ({ referenceDate, todos, onSelectDate }: Schedul
                 colEnd,
                 title: todo.title,
                 isPlanned: todo.status === 'PLANNED',
+                todo,
               };
             })
-            .filter(Boolean) as Array<{ id: string; colStart: number; colEnd: number; title: string; isPlanned: boolean }>;
+            .filter(Boolean) as Array<{
+              id: string;
+              colStart: number;
+              colEnd: number;
+              title: string;
+              isPlanned: boolean;
+              todo: TodoItem;
+            }>;
 
           const laneEnds: number[] = [];
           const bars = weekItems
@@ -142,6 +143,15 @@ export const ScheduleCalendar = ({ referenceDate, todos, onSelectDate }: Schedul
                     style={{
                       gridColumn: `${bar.colStart + 1} / ${bar.colEnd + 2}`,
                       gridRow: `${bar.lane + 1}`,
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => onSelectTodo?.(bar.todo)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onSelectTodo?.(bar.todo);
+                      }
                     }}
                   >
                     <span className="event-title">{bar.title}</span>

@@ -32,13 +32,23 @@ export interface ScheduleTodoRequestPayload extends BaseTodoRequestPayload {
 
 export type TodoRequestPayload = GeneralTodoRequestPayload | ScheduleTodoRequestPayload;
 
-export interface TodoUpdatePayload {
+export interface BaseTodoUpdatePayload {
   title: string;
   type: TodoType;
   status: TodoStatus;
   activeFrom: string;
   activeUntil: string;
 }
+
+export interface GeneralTodoUpdatePayload extends BaseTodoUpdatePayload {
+  repeatDays?: number | null;
+}
+
+export interface ScheduleTodoUpdatePayload extends BaseTodoUpdatePayload {
+  alarms: string[];
+}
+
+export type TodoUpdatePayload = GeneralTodoUpdatePayload | ScheduleTodoUpdatePayload;
 
 export interface RepeatTodoUpdatePayload {
   title: string;

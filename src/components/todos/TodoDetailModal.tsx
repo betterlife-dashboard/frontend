@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { apiClient } from '@/services/apiClient';
 import type { TodoItem, TodoStatus, TodoType, TodoUpdatePayload } from '@/types/todo';
 import { DatePickerButton } from '@/components/common/DatePickerButton';
 import { formatRepeatDays, isTodayDate, todayISODate } from '@/utils/todo';
@@ -30,6 +31,31 @@ const getTimeParts = (value: string | undefined, fallback: string) => {
   const time = toTimeOnlyValue(value) || fallback;
   const [hour = '00', minute = '00'] = time.split(':');
   return [hour.padStart(2, '0'), minute.padStart(2, '0')];
+};
+
+const parseAlarmOffsetsByBase = (alarms: string[]): { start: string[]; end: string[] } => {
+  if (!alarms || alarms.length === 0) {
+    return { start: [], end: [] };
+  }
+
+  const allowedOffsets = ['1h', '1d', '3d', '1w'];
+  const start: string[] = [];
+  const end: string[] = [];
+
+  alarms.forEach((alarm) => {
+    const normalized = (alarm ?? '').toLowerCase();
+    const offset = normalized.replace(/^(reminder|deadline)[-_]?/, '');
+    if (!allowedOffsets.includes(offset)) {
+      return;
+    }
+    if (normalized.startsWith('deadline-') || normalized.startsWith('deadline_')) {
+      end.push(offset);
+      return;
+    }
+    start.push(offset);
+  });
+
+  return { start, end };
 };
 
 interface TodoDetailModalProps {
@@ -64,8 +90,8 @@ export const TodoDetailModal = ({ todo, isOpen, onUpdate, onDelete, onClose }: T
   const [status, setStatus] = useState<TodoStatus>('PLANNED');
   const [activeFrom, setActiveFrom] = useState<string>(todayISODate());
   const [activeUntil, setActiveUntil] = useState<string>(todayISODate());
-  const [alarmBase, setAlarmBase] = useState<'start' | 'end'>('start');
-  const [alarmOffsets, setAlarmOffsets] = useState<string[]>([]);
+  const [startAlarmOffsets, setStartAlarmOffsets] = useState<string[]>([]);
+  const [endAlarmOffsets, setEndAlarmOffsets] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -85,11 +111,38 @@ export const TodoDetailModal = ({ todo, isOpen, onUpdate, onDelete, onClose }: T
       setActiveFrom(ensureDateOnlyValue(todo.activeFrom ?? undefined, todayISODate()));
       setActiveUntil(ensureDateOnlyValue(todo.activeUntil ?? undefined, todayISODate()));
     }
-    setAlarmBase('start');
-    setAlarmOffsets([]);
+    setStartAlarmOffsets([]);
+    setEndAlarmOffsets([]);
     setError(null);
     setIsSaving(false);
     setIsDeleting(false);
+  }, [todo, isOpen]);
+
+  useEffect(() => {
+    if (!todo || !isOpen || todo.type !== 'SCHEDULE') {
+      return;
+    }
+    let mounted = true;
+    const loadAlarms = async () => {
+      try {
+        const { data } = await apiClient.get<{ alarms: string[] }>(`/notify/${todo.id}`);
+        if (!mounted) {
+          return;
+        }
+        const { start, end } = parseAlarmOffsetsByBase(data.alarms ?? []);
+        setStartAlarmOffsets(start);
+        setEndAlarmOffsets(end);
+      } catch {
+        if (mounted) {
+          setStartAlarmOffsets([]);
+          setEndAlarmOffsets([]);
+        }
+      }
+    };
+    void loadAlarms();
+    return () => {
+      mounted = false;
+    };
   }, [todo, isOpen]);
 
   const repeatLabel = useMemo(() => formatRepeatDays(todo?.repeatDays), [todo?.repeatDays]);
@@ -140,6 +193,8 @@ export const TodoDetailModal = ({ todo, isOpen, onUpdate, onDelete, onClose }: T
     } else {
       setActiveFrom((current) => ensureDateOnlyValue(current, todayISODate()));
       setActiveUntil((current) => ensureDateOnlyValue(current, todayISODate()));
+      setStartAlarmOffsets([]);
+      setEndAlarmOffsets([]);
     }
   }, [isSchedule]);
 
@@ -158,13 +213,24 @@ export const TodoDetailModal = ({ todo, isOpen, onUpdate, onDelete, onClose }: T
     setError(null);
     const normalizedActiveFrom = activeFrom || todayISODate();
     const normalizedActiveUntil = activeUntil || todayISODate();
-    const payload: TodoUpdatePayload = {
+    const basePayload = {
       title: title.trim(),
       type,
       status,
       activeFrom: normalizedActiveFrom,
       activeUntil: normalizedActiveUntil,
-    };
+    } as const;
+
+    const payload: TodoUpdatePayload =
+      type === 'SCHEDULE'
+        ? {
+            ...basePayload,
+            alarms: [
+              ...startAlarmOffsets.map((offset) => `reminder-${offset}`),
+              ...endAlarmOffsets.map((offset) => `deadline-${offset}`),
+            ],
+          }
+        : basePayload;
 
     try {
       await onUpdate(todo.id, payload);
@@ -388,55 +454,67 @@ export const TodoDetailModal = ({ todo, isOpen, onUpdate, onDelete, onClose }: T
           {isSchedule ? (
             <div className="form-field">
               <label>알림 설정</label>
-              <div className="form-row" style={{ gap: '12px' }}>
-                <label className="checkbox-field">
-                  <input
-                    type="radio"
-                    name="detail-alarm-base"
-                    value="start"
-                    checked={alarmBase === 'start'}
-                    onChange={() => setAlarmBase('start')}
-                  />
-                  시작 시간 기준
-                </label>
-                <label className="checkbox-field">
-                  <input
-                    type="radio"
-                    name="detail-alarm-base"
-                    value="end"
-                    checked={alarmBase === 'end'}
-                    onChange={() => setAlarmBase('end')}
-                  />
-                  종료 시간 기준
-                </label>
-              </div>
               <div className="form-row" style={{ flexWrap: 'wrap', gap: '12px' }}>
-                {['1h', '1d', '3d', '1w'].map((value) => {
-                  const labelMap: Record<string, string> = {
-                    '1h': '1시간 전',
-                    '1d': '하루 전',
-                    '3d': '3일 전',
-                    '1w': '일주일 전',
-                  };
-                  const isChecked = alarmOffsets.includes(value);
-                  return (
-                    <label key={value} className="checkbox-field">
-                      <input
-                        type="checkbox"
-                        value={value}
-                        checked={isChecked}
-                        onChange={() =>
-                          setAlarmOffsets((prev) =>
-                            prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value],
-                          )
-                        }
-                      />
-                      {labelMap[value]}
-                    </label>
-                  );
-                })}
+                <div>
+                  <p className="text-caption">시작 시간 기준</p>
+                  <div className="form-row" style={{ flexWrap: 'wrap', gap: '12px' }}>
+                    {['1h', '1d', '3d', '1w'].map((value) => {
+                      const labelMap: Record<string, string> = {
+                        '1h': '1시간 전',
+                        '1d': '하루 전',
+                        '3d': '3일 전',
+                        '1w': '일주일 전',
+                      };
+                      const isChecked = startAlarmOffsets.includes(value);
+                      return (
+                        <label key={`detail-start-${value}`} className="checkbox-field">
+                          <input
+                            type="checkbox"
+                            value={value}
+                            checked={isChecked}
+                            onChange={() =>
+                              setStartAlarmOffsets((prev) =>
+                                prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value],
+                              )
+                            }
+                          />
+                          {labelMap[value]}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-caption">마감 시간 기준</p>
+                  <div className="form-row" style={{ flexWrap: 'wrap', gap: '12px' }}>
+                    {['1h', '1d', '3d', '1w'].map((value) => {
+                      const labelMap: Record<string, string> = {
+                        '1h': '1시간 전',
+                        '1d': '하루 전',
+                        '3d': '3일 전',
+                        '1w': '일주일 전',
+                      };
+                      const isChecked = endAlarmOffsets.includes(value);
+                      return (
+                        <label key={`detail-end-${value}`} className="checkbox-field">
+                          <input
+                            type="checkbox"
+                            value={value}
+                            checked={isChecked}
+                            onChange={() =>
+                              setEndAlarmOffsets((prev) =>
+                                prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value],
+                              )
+                            }
+                          />
+                          {labelMap[value]}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
-              <p className="text-caption">알림은 UI만 제공되며, 서버 연동은 추후 적용 예정입니다.</p>
+              <p className="text-caption">시작(reminder-)·마감(deadline-) 기준 알림을 각각 선택할 수 있습니다.</p>
             </div>
           ) : null}
           {error ? <div className="error-banner">{error}</div> : null}

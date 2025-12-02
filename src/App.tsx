@@ -4,12 +4,14 @@ import Home from '@/pages/Home';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 import RepeatTodos from '@/pages/RepeatTodos';
+import ScheduleCalendarPage from '@/pages/ScheduleCalendarPage';
 
 const App = () => (
   <Routes>
     <Route element={<ProtectedRoute />}>
       <Route path="/" element={<Home />} />
       <Route path="/repeat-todos" element={<RepeatTodos />} />
+      <Route path="/calendar" element={<ScheduleCalendarPage />} />
     </Route>
     <Route path="/login" element={<Login />} />
     <Route path="/register" element={<Register />} />

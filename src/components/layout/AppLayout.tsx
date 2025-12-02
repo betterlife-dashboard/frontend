@@ -1,5 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { type PropsWithChildren } from 'react';
+import { type PropsWithChildren, useEffect, useRef, useState } from 'react';
+import { apiClient } from '@/services/apiClient';
+import { ToastStack, type ToastMessage } from '@/components/common/ToastStack';
 import { useAuth } from '@/hooks/useAuth';
 
 type NavItem =
@@ -18,7 +20,7 @@ type NavItem =
 const navItems: NavItem[] = [
   { id: 'todos', label: 'Todo 리스트', path: '/' },
   { id: 'repeat', label: '반복 Todo', path: '/repeat-todos' },
-  { id: 'calendar', label: '달력', disabled: true },
+  { id: 'calendar', label: '달력', path: '/calendar' },
   { id: 'focus', label: '집중', disabled: true },
   { id: 'workout', label: '운동', disabled: true },
 ];
@@ -26,6 +28,11 @@ const navItems: NavItem[] = [
 export const AppLayout = ({ children }: PropsWithChildren) => {
   const navigate = useNavigate();
   const { user, logout, isInitializing } = useAuth();
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const seenNotifyIdsRef = useRef<Set<number>>(new Set());
+  const pollTimerRef = useRef<number | null>(null);
+  const pollIntervalRef = useRef<number | null>(null);
+  const isPollingRef = useRef(false);
   const resolvedName = user?.name?.trim();
   const resolvedEmail = user?.email?.trim();
   const displayName = user
@@ -42,6 +49,75 @@ export const AppLayout = ({ children }: PropsWithChildren) => {
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+    const POLL_INTERVAL_MS = 5 * 60 * 1000; // 5분 간격
+    const FOCUS_POLL_DEBOUNCE_MS = 1500;
+
+    const dismissToast = (id: number) => {
+      setToasts((prev) => prev.filter((toast) => toast.id !== id));
+    };
+
+    const runPoll = async () => {
+      if (isPollingRef.current) {
+        return;
+      }
+      isPollingRef.current = true;
+      try {
+        const { data } = await apiClient.get<ToastMessage[]>('/notify/now');
+        if (!isMounted || !Array.isArray(data)) {
+          isPollingRef.current = false;
+          return;
+        }
+        data.forEach((item) => {
+          if (seenNotifyIdsRef.current.has(item.id)) {
+            return;
+          }
+          seenNotifyIdsRef.current.add(item.id);
+          setToasts((prev) => [...prev, { id: item.id, title: item.title, body: item.body }]);
+          window.setTimeout(() => dismissToast(item.id), 15000);
+        });
+      } catch {
+        // 알림 폴링 실패는 조용히 무시 (네트워크 상태 등)
+      } finally {
+        isPollingRef.current = false;
+      }
+    };
+
+    const handleVisibilityPoll = () => {
+      if (document.visibilityState === 'visible') {
+        window.setTimeout(() => {
+          runPoll();
+        }, FOCUS_POLL_DEBOUNCE_MS);
+      }
+    };
+    const handleFocusPoll = () => {
+      runPoll();
+    };
+
+    runPoll();
+    pollIntervalRef.current = window.setInterval(runPoll, POLL_INTERVAL_MS);
+    window.addEventListener('visibilitychange', handleVisibilityPoll);
+    window.addEventListener('focus', handleFocusPoll);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('visibilitychange', handleVisibilityPoll);
+      window.removeEventListener('focus', handleFocusPoll);
+      if (pollTimerRef.current) {
+        window.clearTimeout(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
+      if (pollIntervalRef.current) {
+        window.clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+    };
+  }, []);
+
+  const handleDismissToast = (id: number) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
   };
 
   return (
@@ -80,7 +156,10 @@ export const AppLayout = ({ children }: PropsWithChildren) => {
           </button>
         </div>
       </aside>
-      <main className="content-area">{children}</main>
+      <main className="content-area">
+        {children}
+        <ToastStack toasts={toasts} onDismiss={handleDismissToast} />
+      </main>
     </div>
   );
 };
