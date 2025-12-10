@@ -308,23 +308,50 @@ export const TodoDetailModal = ({ todo, isOpen, onUpdate, onDelete, onClose }: T
             />
           </div>
           <div className="form-field">
-            <label htmlFor="todo-detail-type">유형</label>
-            <select id="todo-detail-type" value={type} onChange={(event) => setType(event.target.value as TodoType)}>
-              <option value="GENERAL">일반</option>
-              <option value="WORK_STUDY">업무/공부</option>
-              <option value="WORKOUT">운동</option>
-              <option value="SCHEDULE">일정</option>
-            </select>
+            <label>유형</label>
+            <div className="option-button-group" role="group" aria-label="유형 선택">
+              {(['GENERAL', 'WORK_STUDY', 'WORKOUT', 'SCHEDULE'] as TodoType[]).map((option) => {
+                const isActive = type === option;
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    className={`option-button ${isActive ? 'active' : ''}`}
+                    onClick={() => setType(option)}
+                    aria-pressed={isActive}
+                    disabled={isSaving || isDeleting}
+                  >
+                    {option === 'GENERAL'
+                      ? '일반'
+                      : option === 'WORK_STUDY'
+                        ? '업무/공부'
+                        : option === 'WORKOUT'
+                          ? '운동'
+                          : '일정'}
+                  </button>
+                );
+              })}
+            </div>
           </div>
           <div className="form-field">
-            <label htmlFor="todo-detail-status">상태</label>
-            <select id="todo-detail-status" value={status} onChange={(event) => setStatus(event.target.value as TodoStatus)}>
-              {statusOptions.map((option) => (
-                <option key={option} value={option}>
-                  {statusLabelMap[option]}
-                </option>
-              ))}
-            </select>
+            <label>상태</label>
+            <div className="option-button-group" role="group" aria-label="상태 선택">
+              {statusOptions.map((option) => {
+                const isActive = status === option;
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    className={`option-button ${isActive ? 'active' : ''}`}
+                    onClick={() => setStatus(option)}
+                    aria-pressed={isActive}
+                    disabled={isSaving || isDeleting}
+                  >
+                    {statusLabelMap[option]}
+                  </button>
+                );
+              })}
+            </div>
           </div>
           {isSchedule ? (
             <>

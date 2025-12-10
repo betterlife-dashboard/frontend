@@ -218,14 +218,23 @@ export const CreateTodoForm = ({ selectedDate, onSubmit, withIntro = true }: Cre
         />
       </div>
       <div className="form-field" style={{ minWidth: '180px' }}>
-        <label htmlFor="todo-type">유형</label>
-        <select id="todo-type" value={type} onChange={(event) => setType(event.target.value as TodoType)}>
-          {typeOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+        <label>유형</label>
+        <div className="option-button-group" role="group" aria-label="유형 선택">
+          {typeOptions.map((option) => {
+            const isActive = type === option.value;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                className={`option-button ${isActive ? 'active' : ''}`}
+                onClick={() => setType(option.value)}
+                aria-pressed={isActive}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
       <div className="form-field">
         <label className="checkbox-field">
