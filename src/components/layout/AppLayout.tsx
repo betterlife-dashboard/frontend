@@ -21,7 +21,7 @@ const navItems: NavItem[] = [
   { id: 'todos', label: 'Todo 리스트', path: '/' },
   { id: 'repeat', label: '반복 Todo', path: '/repeat-todos' },
   { id: 'calendar', label: '달력', path: '/calendar' },
-  { id: 'focus', label: '집중', disabled: true },
+  { id: 'focus', label: '집중', path: '/focus' },
   { id: 'workout', label: '운동', disabled: true },
 ];
 
