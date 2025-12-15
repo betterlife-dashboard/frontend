@@ -71,7 +71,8 @@ const Focus = () => {
   const displayMinutes = String(Math.floor(remainingSeconds / 60)).padStart(2, '0');
   const displaySeconds = String(remainingSeconds % 60).padStart(2, '0');
   const progressDegrees = Math.round(progress * 360);
-  const ringStyle: CSSProperties = { ['--progress' as '--progress']: `${progressDegrees}deg` };
+  type RingStyle = CSSProperties & { '--progress': string };
+  const ringStyle: RingStyle = { '--progress': `${progressDegrees}deg` };
 
   const handleTimeKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     if (isRunning) return;
