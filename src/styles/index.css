@@ -622,6 +622,238 @@ select:focus {
   color: #5be292;
 }
 
+.focus-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.focus-page {
+  position: relative;
+}
+
+.focus-page::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: none;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.focus-timer-shell {
+  position: sticky;
+  top: 8px;
+  z-index: 10;
+  backdrop-filter: blur(6px);
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+}
+
+.focus-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  position: relative;
+  z-index: 1;
+}
+
+.focus-ring {
+  position: relative;
+  width: min(200px, 70vw);
+  aspect-ratio: 1/1;
+  display: grid;
+  place-items: center;
+}
+
+.focus-ring-track,
+.focus-ring-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+}
+
+.focus-ring-track {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+}
+
+.focus-ring-fill {
+  mask: radial-gradient(circle at 50% 50%, transparent 62%, black 63%);
+  background: conic-gradient(from 270deg, #5be292 var(--progress, 0deg), rgba(255, 255, 255, 0.08) 0deg);
+  transition: background 0.3s ease;
+}
+
+.focus-ring-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  z-index: 1;
+  text-align: center;
+}
+
+.focus-status {
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(245, 247, 250, 0.86);
+}
+
+.focus-status.running {
+  background: rgba(154, 195, 255, 0.18);
+  color: #c7ddff;
+}
+
+.focus-time {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.25);
+  cursor: default;
+  user-select: none;
+  transition: border 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+}
+
+.focus-time.adjusting {
+  border-color: rgba(91, 226, 146, 0.6);
+  box-shadow: 0 10px 28px rgba(91, 226, 146, 0.25);
+  transform: translateY(-2px);
+}
+
+.focus-time.locked {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.focus-controls {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 240px;
+}
+
+.option-button.small {
+  padding: 8px 12px;
+  font-size: 13px;
+  border-radius: 10px;
+}
+
+.focus-control-columns {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.focus-column {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 140px;
+}
+
+.focus-column button {
+  width: 100%;
+  min-height: 44px;
+  padding: 12px 12px;
+  font-size: 14px;
+}
+
+.focus-note-card {
+  min-height: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.note-placeholder {
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.focus-floating {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.focus-floating-toggle {
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.35);
+  color: #f5f7fa;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.focus-floating-toggle:hover {
+  background: rgba(255, 255, 255, 0.12);
+  transform: translateY(-1px);
+}
+
+.focus-floating-panel {
+  display: none;
+  min-width: 190px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(12, 16, 20, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(6px);
+  gap: 10px;
+}
+
+.focus-floating.open .focus-floating-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.focus-floating-time {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.focus-floating-time strong {
+  font-size: 16px;
+  letter-spacing: 0.03em;
+}
+
+@media (max-width: 720px) {
+  .focus-hero {
+    flex-direction: column;
+  }
+
+  .focus-floating {
+    top: 12px;
+    right: 12px;
+    left: 12px;
+    align-items: flex-end;
+  }
+
+  .focus-floating-panel {
+    width: 100%;
+  }
+}
+
 .error-banner {
   padding: 12px 16px;
   border-radius: 12px;

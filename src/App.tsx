@@ -5,6 +5,7 @@ import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 import RepeatTodos from '@/pages/RepeatTodos';
 import ScheduleCalendarPage from '@/pages/ScheduleCalendarPage';
+import Focus from '@/pages/Focus';
 
 const App = () => (
   <Routes>
@@ -12,6 +13,7 @@ const App = () => (
       <Route path="/" element={<Home />} />
       <Route path="/repeat-todos" element={<RepeatTodos />} />
       <Route path="/calendar" element={<ScheduleCalendarPage />} />
+      <Route path="/focus" element={<Focus />} />
     </Route>
     <Route path="/login" element={<Login />} />
     <Route path="/register" element={<Register />} />
