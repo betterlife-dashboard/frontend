@@ -30,7 +30,7 @@ jobs:
 
       - name: Build and push frontend image
         run : |
-          docker build -f Dockerfile -t ${{ env.DOCKERHUB_NAMESPACE }}/frontend:${{ env.IMAGE_TAG }} frontend
+          docker build -f Dockerfile -t ${{ env.DOCKERHUB_NAMESPACE }}/frontend:${{ env.IMAGE_TAG }}
           docker push ${{ env.DOCKERHUB_NAMESPACE }}/frontend:${{ env.IMAGE_TAG }}
           docker tag ${{ env.DOCKERHUB_NAMESPACE }}/frontend:${{ env.IMAGE_TAG }} ${{ env.DOCKERHUB_NAMESPACE }}/frontend:latest
           docker push ${{ env.DOCKERHUB_NAMESPACE }}/frontend:latest
