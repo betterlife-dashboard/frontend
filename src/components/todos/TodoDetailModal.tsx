@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { apiClient } from '@/services/apiClient';
+import { mapNotifiesToAlarmOffsets } from '@/utils/notify';
+import type { WebNotify } from '@/types/notify';
 import type { TodoItem, TodoStatus, TodoType, TodoUpdatePayload } from '@/types/todo';
 import { DatePickerButton } from '@/components/common/DatePickerButton';
 import { formatRepeatDays, isTodayDate, todayISODate } from '@/utils/todo';
@@ -31,31 +33,6 @@ const getTimeParts = (value: string | undefined, fallback: string) => {
   const time = toTimeOnlyValue(value) || fallback;
   const [hour = '00', minute = '00'] = time.split(':');
   return [hour.padStart(2, '0'), minute.padStart(2, '0')];
-};
-
-const parseAlarmOffsetsByBase = (alarms: string[]): { start: string[]; end: string[] } => {
-  if (!alarms || alarms.length === 0) {
-    return { start: [], end: [] };
-  }
-
-  const allowedOffsets = ['1h', '1d', '3d', '1w'];
-  const start: string[] = [];
-  const end: string[] = [];
-
-  alarms.forEach((alarm) => {
-    const normalized = (alarm ?? '').toLowerCase();
-    const offset = normalized.replace(/^(reminder|deadline)[-_]?/, '');
-    if (!allowedOffsets.includes(offset)) {
-      return;
-    }
-    if (normalized.startsWith('deadline-') || normalized.startsWith('deadline_')) {
-      end.push(offset);
-      return;
-    }
-    start.push(offset);
-  });
-
-  return { start, end };
 };
 
 interface TodoDetailModalProps {
@@ -125,11 +102,13 @@ export const TodoDetailModal = ({ todo, isOpen, onUpdate, onDelete, onClose }: T
     let mounted = true;
     const loadAlarms = async () => {
       try {
-        const { data } = await apiClient.get<{ alarms: string[] }>(`/notify/${todo.id}`);
+        const { data } = await apiClient.get<WebNotify[]>('/notify', {
+          params: { 'todo-id': todo.id },
+        });
         if (!mounted) {
           return;
         }
-        const { start, end } = parseAlarmOffsetsByBase(data.alarms ?? []);
+        const { start, end } = mapNotifiesToAlarmOffsets(data ?? []);
         setStartAlarmOffsets(start);
         setEndAlarmOffsets(end);
       } catch {

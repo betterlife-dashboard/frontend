@@ -1,8 +1,8 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { type PropsWithChildren, useEffect, useRef, useState } from 'react';
-import { apiClient } from '@/services/apiClient';
 import { ToastStack, type ToastMessage } from '@/components/common/ToastStack';
 import { useAuth } from '@/hooks/useAuth';
+import { initFcm } from '@/services/fcm';
 
 type NavItem =
   | {
@@ -30,9 +30,6 @@ export const AppLayout = ({ children }: PropsWithChildren) => {
   const { user, logout, isInitializing } = useAuth();
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const seenNotifyIdsRef = useRef<Set<number>>(new Set());
-  const pollTimerRef = useRef<number | null>(null);
-  const pollIntervalRef = useRef<number | null>(null);
-  const isPollingRef = useRef(false);
   const resolvedName = user?.name?.trim();
   const resolvedEmail = user?.email?.trim();
   const displayName = user
@@ -53,68 +50,46 @@ export const AppLayout = ({ children }: PropsWithChildren) => {
 
   useEffect(() => {
     let isMounted = true;
-    const POLL_INTERVAL_MS = 5 * 60 * 1000; // 5분 간격
-    const FOCUS_POLL_DEBOUNCE_MS = 1500;
+    let unsubscribe = () => {};
 
     const dismissToast = (id: number) => {
       setToasts((prev) => prev.filter((toast) => toast.id !== id));
     };
 
-    const runPoll = async () => {
-      if (isPollingRef.current) {
+    const pushToast = (title: string, body: string, id?: number) => {
+      const resolvedId = id ?? Date.now();
+      if (seenNotifyIdsRef.current.has(resolvedId)) {
         return;
       }
-      isPollingRef.current = true;
-      try {
-        const { data } = await apiClient.get<ToastMessage[]>('/notify/now');
-        if (!isMounted || !Array.isArray(data)) {
-          isPollingRef.current = false;
+      seenNotifyIdsRef.current.add(resolvedId);
+      setToasts((prev) => [...prev, { id: resolvedId, title, body }]);
+      window.setTimeout(() => dismissToast(resolvedId), 15000);
+    };
+
+    const setupFcm = async () => {
+      if (!user) {
+        return;
+      }
+      const { unsubscribe: release } = await initFcm((payload) => {
+        if (!isMounted) {
           return;
         }
-        data.forEach((item) => {
-          if (seenNotifyIdsRef.current.has(item.id)) {
-            return;
-          }
-          seenNotifyIdsRef.current.add(item.id);
-          setToasts((prev) => [...prev, { id: item.id, title: item.title, body: item.body }]);
-          window.setTimeout(() => dismissToast(item.id), 15000);
-        });
-      } catch {
-        // 알림 폴링 실패는 조용히 무시 (네트워크 상태 등)
-      } finally {
-        isPollingRef.current = false;
-      }
+        const title = payload.notification?.title || payload.data?.title || '새 알림';
+        const body = payload.notification?.body || payload.data?.body || '';
+        const id = payload.data?.id ? Number(payload.data.id) : undefined;
+        if (title || body) {
+          pushToast(title, body, Number.isNaN(id) ? undefined : id);
+        }
+      });
+      unsubscribe = release;
     };
 
-    const handleVisibilityPoll = () => {
-      if (document.visibilityState === 'visible') {
-        window.setTimeout(() => {
-          runPoll();
-        }, FOCUS_POLL_DEBOUNCE_MS);
-      }
-    };
-    const handleFocusPoll = () => {
-      runPoll();
-    };
-
-    runPoll();
-    pollIntervalRef.current = window.setInterval(runPoll, POLL_INTERVAL_MS);
-    window.addEventListener('visibilitychange', handleVisibilityPoll);
-    window.addEventListener('focus', handleFocusPoll);
+    void setupFcm();
     return () => {
       isMounted = false;
-      window.removeEventListener('visibilitychange', handleVisibilityPoll);
-      window.removeEventListener('focus', handleFocusPoll);
-      if (pollTimerRef.current) {
-        window.clearTimeout(pollTimerRef.current);
-        pollTimerRef.current = null;
-      }
-      if (pollIntervalRef.current) {
-        window.clearInterval(pollIntervalRef.current);
-        pollIntervalRef.current = null;
-      }
+      unsubscribe();
     };
-  }, []);
+  }, [user]);
 
   const handleDismissToast = (id: number) => {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));

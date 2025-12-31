@@ -7,6 +7,8 @@ import type {
   TodoUpdatePayload,
 } from '@/types/todo';
 import { normalizeTodoDateRange } from '@/utils/todo';
+import { mapNotifiesToAlarmTokens } from '@/utils/notify';
+import type { WebNotify } from '@/types/notify';
 
 const toISODate = (date: Date) => date.toISOString().slice(0, 10);
 
@@ -60,8 +62,10 @@ export const useTodos = ({ initialDate }: UseTodosOptions = {}) => {
   const fetchScheduleAlarms = useCallback(
     async (id: number) => {
       try {
-        const { data } = await apiClient.get<{ alarms: string[] }>(`/notify/${id}`);
-        return data.alarms ?? [];
+        const { data } = await apiClient.get<WebNotify[]>('/notify', {
+          params: { 'todo-id': id },
+        });
+        return mapNotifiesToAlarmTokens(data ?? []);
       } catch {
         return [];
       }
